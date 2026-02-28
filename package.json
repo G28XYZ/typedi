@@ -35,7 +35,12 @@
     "lint:check": "eslint --max-warnings 0 --ext .ts src/",
     "test": "jest --coverage --verbose",
     "test:watch": "jest --watch",
-    "test:ci": "jest --runInBand --coverage --verbose"
+    "test:ci": "jest --runInBand --coverage --verbose",
+    "example:basic": "ts-node --project examples/tsconfig.json examples/basic-usage.ts",
+    "example:scoped": "ts-node --project examples/tsconfig.json examples/scoped-containers.ts",
+    "example:resolve-new": "ts-node --project examples/tsconfig.json examples/resolve-new.ts",
+    "example:tc39": "ts-node --project examples/tsconfig.json examples/tc39-decorators.ts",
+    "example:all": "npm run example:basic && npm run example:scoped && npm run example:resolve-new && npm run example:tc39"
   },
   "husky": {
     "hooks": {

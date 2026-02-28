@@ -1,42 +1,54 @@
 # TypeDI
 
-TypeDI is a [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) tool for TypeScript and JavaScript. With it you can build well-structured and easily testable applications in Node or in the browser.
+TypeDI — это библиотека [внедрения зависимостей](https://en.wikipedia.org/wiki/Dependency_injection) для TypeScript и JavaScript. С её помощью можно строить структурированные и удобные для тестирования приложения в Node.js и браузере.
 
-Main features includes:
+Основные возможности:
 
-- property based injection
-- constructor based injection
-- singleton and transient services
-- support for multiple DI containers
+- инъекция через свойства
+- инъекция через конструктор
+- singleton и transient сервисы
+- поддержка нескольких DI-контейнеров
+- поддержка legacy-декораторов TypeScript и стандартных декораторов TC39
 
 ## Installation
 
-> Note: This installation guide is for usage with TypeScript, if you wish to use
-> TypeDI without Typescript please read the documentation about how get started.
+> Примечание: эта инструкция ориентирована на TypeScript.
 
-To start using TypeDI install the required packages via NPM:
+Установите зависимости:
 
 ```bash
 npm install typedi reflect-metadata
 ```
 
-Import the `reflect-metadata` package at the **first line** of your application:
+Импортируйте `reflect-metadata` в **самой первой строке** приложения:
 
 ```ts
 import 'reflect-metadata';
 
-// Your other imports and initialization code
-// comes here after you imported the reflect-metadata package!
+// Остальные импорты и инициализация
+// идут после reflect-metadata
 ```
 
-As a last step, you need to enable emitting decorator metadata in your Typescript config. Add these two lines to your `tsconfig.json` file under the `compilerOptions` key:
+Для legacy-декораторов добавьте в `tsconfig.json` (в `compilerOptions`):
 
 ```json
 "emitDecoratorMetadata": true,
 "experimentalDecorators": true,
 ```
 
-Now you are ready to use TypeDI with Typescript!
+## Поддержка декораторов
+
+TypeDI поддерживает два режима:
+
+1. Legacy-декораторы TypeScript (`experimentalDecorators` + `emitDecoratorMetadata`).
+2. Стандартные декораторы TC39 (TypeScript 5+).
+
+Что важно в режиме TC39:
+
+- `@Service()` работает как class decorator.
+- `@Inject` / `@InjectMany` работают для `field` / `accessor`.
+- Для объектов, созданных вручную через `new`, используйте `@Inject(..., { resolveNew: true })`.
+- Parameter decorators конструктора в стандарте TC39 не поддерживаются.
 
 ## Basic Usage
 
@@ -53,23 +65,32 @@ class ExampleInjectedService {
 @Service()
 class ExampleService {
   constructor(
-    // because we annotated ExampleInjectedService with the @Service()
-    // decorator TypeDI will automatically inject an instance of
-    // ExampleInjectedService here when the ExampleService class is requested
-    // from TypeDI.
+    // Так как ExampleInjectedService помечен @Service(),
+    // TypeDI автоматически внедрит его, когда вы запросите ExampleService из контейнера.
     public injectedService: ExampleInjectedService
   ) {}
 }
 
 const serviceInstance = Container.get(ExampleService);
-// we request an instance of ExampleService from TypeDI
+// Получаем экземпляр ExampleService из TypeDI
 
 serviceInstance.injectedService.printMessage();
-// logs "I am alive!" to the console
+// Выведет "I am alive!"
+```
+
+## Examples
+
+Готовые примеры для запуска находятся в папке `./examples`.
+
+```bash
+npm run example:basic
+npm run example:scoped
+npm run example:resolve-new
+npm run example:tc39
 ```
 
 ## Documentation
 
-The detailed usage guide and API documentation for the project can be found:
+Подробная документация доступна:
 
-- in the `./docs` folder of the repository
+- в папке `./docs` репозитория

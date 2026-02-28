@@ -39,6 +39,22 @@ function isMissingEagerIdentifier(identifier: ServiceIdentifier<unknown> | null 
   return identifier === undefined || identifier === Object;
 }
 
+/**
+ * Narrows a potentially missing identifier to a valid ServiceIdentifier
+ * and throws CannotInjectValueError otherwise.
+ */
+function unwrapResolvedIdentifier(
+  identifier: ServiceIdentifier<unknown> | null | undefined,
+  target: Constructable<unknown>,
+  propertyName: string
+): ServiceIdentifier<unknown> {
+  if (isMissingResolvedIdentifier(identifier)) {
+    throw new CannotInjectValueError(target, propertyName);
+  }
+
+  return identifier as ServiceIdentifier<unknown>;
+}
+
 function resolveIdentifierFromStandardDecorator(
   typeOrIdentifier: ((type?: never) => Constructable<unknown>) | ServiceIdentifier<unknown> | undefined,
   context: StandardClassMemberDecoratorContext,
@@ -51,12 +67,10 @@ function resolveIdentifierFromStandardDecorator(
       context.name
     );
     const explicitIdentifier = explicitTypeWrapper?.lazyType();
+    const targetConstructor = getTargetConstructor(decoratedTarget);
+    const normalizedPropertyName = normalizePropertyName(context.name);
 
-    if (isMissingResolvedIdentifier(explicitIdentifier)) {
-      throw new CannotInjectValueError(getTargetConstructor(decoratedTarget), normalizePropertyName(context.name));
-    }
-
-    return explicitIdentifier;
+    return unwrapResolvedIdentifier(explicitIdentifier, targetConstructor, normalizedPropertyName);
   }
 
   const reflectMetadataApi = Reflect as { getMetadata?: CallableFunction } | undefined;
@@ -70,12 +84,10 @@ function resolveIdentifierFromStandardDecorator(
   const identifier = reflectMetadataApi?.getMetadata?.('design:type', metadataTarget, context.name) as
     | ServiceIdentifier<unknown>
     | undefined;
+  const targetConstructor = getTargetConstructor(decoratedTarget);
+  const normalizedPropertyName = normalizePropertyName(context.name);
 
-  if (isMissingResolvedIdentifier(identifier)) {
-    throw new CannotInjectValueError(getTargetConstructor(decoratedTarget), normalizePropertyName(context.name));
-  }
-
-  return identifier;
+  return unwrapResolvedIdentifier(identifier, targetConstructor, normalizedPropertyName);
 }
 
 function createStandardInjectDecorator(
@@ -140,25 +152,22 @@ function createLegacyInjectDecorator(
     index: index,
     value: containerInstance => {
       const evaluatedLazyType = typeWrapper.lazyType();
+      const targetConstructor = getTargetConstructor(target);
+      const normalizedPropertyName = normalizePropertyName(propertyName);
+      const resolvedLazyType = unwrapResolvedIdentifier(evaluatedLazyType, targetConstructor, normalizedPropertyName);
 
-      /** If no type was inferred lazily, or the general Object type was inferred we throw an error. */
-      if (isMissingResolvedIdentifier(evaluatedLazyType)) {
-        throw new CannotInjectValueError(getTargetConstructor(target), normalizePropertyName(propertyName));
-      }
-
-      return containerInstance.get<unknown>(evaluatedLazyType);
+      return containerInstance.get<unknown>(resolvedLazyType);
     },
   });
 
   if (options.resolveNew === true && typeof index !== 'number' && propertyName !== undefined) {
     defineResolveNewPropertyHandler(target, propertyName, () => {
       const evaluatedLazyType = typeWrapper.lazyType();
+      const targetConstructor = getTargetConstructor(target);
+      const normalizedPropertyName = normalizePropertyName(propertyName);
+      const resolvedLazyType = unwrapResolvedIdentifier(evaluatedLazyType, targetConstructor, normalizedPropertyName);
 
-      if (isMissingResolvedIdentifier(evaluatedLazyType)) {
-        throw new CannotInjectValueError(getTargetConstructor(target), normalizePropertyName(propertyName));
-      }
-
-      return ContainerRegistry.getResolutionContainer().get(evaluatedLazyType);
+      return ContainerRegistry.getResolutionContainer().get(resolvedLazyType);
     });
   }
 }

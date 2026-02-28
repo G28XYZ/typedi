@@ -16,7 +16,12 @@ export function resolveToTypeWrapper(
   target: Object,
   propertyName: string | symbol | undefined,
   index?: number
-): { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier } | undefined {
+):
+  | {
+      eagerType: ServiceIdentifier | null | undefined;
+      lazyType: (type?: never) => ServiceIdentifier | undefined;
+    }
+  | undefined {
   /**
    * ? We want to error out as soon as possible when looking up services to inject, however
    * ? we cannot determine the type at decorator execution when cyclic dependencies are involved
@@ -26,7 +31,12 @@ export function resolveToTypeWrapper(
    * ?  - the lazyType is executed in the handler so we never have a JS error
    * ?  - the eagerType is checked when decorator is running and an error is raised if an unknown type is encountered
    */
-  let typeWrapper: { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier } | undefined;
+  let typeWrapper:
+    | {
+        eagerType: ServiceIdentifier | null | undefined;
+        lazyType: (type?: never) => ServiceIdentifier | undefined;
+      }
+    | undefined;
   const reflectMetadataApi: { getMetadata?: CallableFunction } | undefined = Reflect as
     | { getMetadata?: CallableFunction }
     | undefined;
@@ -44,7 +54,9 @@ export function resolveToTypeWrapper(
 
   /** If no explicit type is set and handler registered for a class property, we need to get the property type. */
   if (!typeOrIdentifier && propertyName !== undefined) {
-    const identifier = reflectMetadataApi?.getMetadata?.('design:type', target, propertyName);
+    const identifier = reflectMetadataApi?.getMetadata?.('design:type', target, propertyName) as
+      | ServiceIdentifier
+      | undefined;
 
     typeWrapper = { eagerType: identifier, lazyType: () => identifier };
   }

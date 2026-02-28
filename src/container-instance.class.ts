@@ -375,7 +375,8 @@ export class ContainerInstance {
       if (!serviceMetadata.factory && serviceMetadata.type) {
         const constructableTargetType: Constructable<unknown> = serviceMetadata.type;
         // setup constructor parameters for a newly initialized service
-        const paramTypes: unknown[] = (Reflect as any)?.getMetadata('design:paramtypes', constructableTargetType) || [];
+        const paramTypes: unknown[] =
+          (Reflect as any)?.getMetadata?.('design:paramtypes', constructableTargetType) || [];
         const params = this.initializeParams(constructableTargetType, paramTypes);
 
         // "extra feature" - always pass container instance as the last argument to the service function
