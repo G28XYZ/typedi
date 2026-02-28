@@ -2,7 +2,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import { terser } from 'rollup-plugin-terser';
 
-export default {
+const config = {
   input: 'build/esm5/index.js',
   output: [
     {
@@ -21,3 +21,5 @@ export default {
   ],
   plugins: [commonjs(), nodeResolve()],
 };
+
+export default config;
