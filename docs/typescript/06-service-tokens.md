@@ -8,7 +8,7 @@ import { Container, Token } from 'typedi';
 
 export const JWT_SECRET_TOKEN = new Token<string>('MY_SECRET');
 
-Container.set(JWT_SECRET_TOKEN, 'wow-such-secure-much-encryption');
+Container.set({ id: JWT_SECRET_TOKEN, value: 'wow-such-secure-much-encryption' });
 
 /**
  * Somewhere else in the application after the JWT_SECRET_TOKEN is
@@ -29,7 +29,7 @@ import { Container, Token, Inject, Service } from 'typedi';
 
 export const JWT_SECRET_TOKEN = new Token<string>('MY_SECRET');
 
-Container.set(JWT_SECRET_TOKEN, 'wow-such-secure-much-encryption');
+Container.set({ id: JWT_SECRET_TOKEN, value: 'wow-such-secure-much-encryption' });
 
 @Service()
 class Example {
@@ -53,8 +53,8 @@ import { Container, Token } from 'typedi';
 const tokenA = new Token('TOKEN');
 const tokenB = new Token('TOKEN');
 
-Container.set(tokenA, 'value-A');
-Container.set(tokenB, 'value-B');
+Container.set({ id: tokenA, value: 'value-A' });
+Container.set({ id: tokenB, value: 'value-B' });
 
 const tokenValueA = Container.get(tokenA);
 // tokenValueA is "value-A"
@@ -67,5 +67,5 @@ console.log(tokenValueA === tokenValueB);
 
 ## Difference between Token and string identifier
 
-They both achieve the same goal, however, it's recommended to use `Tokens` as they are type-safe and cannot be mistyped,
-while a mistyped string identifier will silently return `undefined` as value by default.
+They both achieve the same goal, however, it's recommended to use `Tokens` as they are type-safe and cannot be mistyped.
+With string identifiers, a typo becomes a runtime lookup error.

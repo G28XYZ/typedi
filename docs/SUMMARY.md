@@ -1,6 +1,6 @@
 # Table of contents
 
-- [Old documentation](README.md)
+- [Legacy Documentation and Migration Notes](README.md)
 
 - [Getting Started](typescript/01-getting-started.md)
 - [Usage Guide](typescript/02-basic-usage-guide.md)
@@ -18,5 +18,4 @@
 ## Usage without TypeScript
 
 - [Getting Started](javascript/01-getting-started.md)
-- Usage
-  - [Old documentation](javascript/02-basic-usage.md)
+- [Usage](javascript/02-basic-usage.md)

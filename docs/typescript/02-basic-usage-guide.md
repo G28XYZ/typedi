@@ -22,15 +22,17 @@ import { Container, Inject, Service, Token } from 'typedi';
 
 const myToken = new Token('SECRET_VALUE_KEY');
 
-Container.set(myToken, 'my-secret-value');
-Container.set('my-config-key', 'value-for-config-key');
-Container.set('default-pagination', 30);
+Container.set({ id: myToken, value: 'my-secret-value' });
+Container.set({ id: 'my-config-key', value: 'value-for-config-key' });
+Container.set({ id: 'default-pagination', value: 30 });
 
 // somewhere else in your application
 const tokenValue = Container.get(myToken);
 const configValue = Container.get('my-config-key');
 const defaultPagination = Container.get('default-pagination');
 ```
+
+For migration-only scenarios, the legacy `Container.set(id, value)` format is still accepted.
 
 _For detailed documentation about `@Service` decorator please read the [@Service decorator](./04-service-decorator.md) page._
 
@@ -117,11 +119,11 @@ class ExampleClass {
   injectedClass: InjectedClass;
 }
 
-/** Tokens must be explicity set in the Container with the desired value. */
-Container.set(myToken, 'my-secret-value');
-/** String identifier must be explicity set in the Container with the desired value. */
-Container.set('my-dependency-name-A', InjectedClass);
-Container.set('my-dependency-name-B', 'primitive-value');
+/** Tokens must be explicitly set in the Container with the desired value. */
+Container.set({ id: myToken, value: 'my-secret-value' });
+/** String identifier must be explicitly set in the Container with the desired value. */
+Container.set({ id: 'my-dependency-name-A', type: InjectedClass });
+Container.set({ id: 'my-dependency-name-B', value: 'primitive-value' });
 
 const injectedClassInstance = Container.get(InjectedClass);
 // a class without dependencies can be required
@@ -141,6 +143,12 @@ _For detailed documentation about `Token` class please read the [Service Tokens]
 
 Every registered service by default is a singleton. Meaning repeated calls to `Container.get(MyClass)` will return the
 same instance. If this is not the desired behavior a class can be marked as `transient` via the `@Service()` decorator.
+
+If your project needs container-scoped defaults, you can switch the default globally:
+
+```ts
+Container.setDefaultScope('container');
+```
 
 ```ts
 import 'reflect-metadata';

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Container, Service } from '../src/index';
 
-@Service()
+@Service({ scope: 'container' })
 class RequestState {
   public readonly id = Math.random().toString(36).slice(2, 10);
 }

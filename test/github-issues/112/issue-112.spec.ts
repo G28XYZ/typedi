@@ -7,13 +7,13 @@ describe('Github Issues', function () {
   beforeEach(() => Container.reset({ strategy: 'resetValue' }));
 
   it('#112 - maximum call stack size error with circular dependencies', () => {
-    @Service()
+    @Service({ scope: 'container' })
     class ClassA {
       @Inject(() => ClassB)
       classB: unknown;
     }
 
-    @Service()
+    @Service({ scope: 'container' })
     class ClassB {
       @Inject(() => ClassA)
       classA: unknown;

@@ -1,5 +1,6 @@
 import { ContainerInstance } from './container-instance.class';
 import { ContainerIdentifier } from './types/container-identifier.type';
+import { ContainerScope } from './types/container-scope.type';
 
 /**
  * The container registry is responsible for holding the default and every
@@ -9,6 +10,12 @@ import { ContainerIdentifier } from './types/container-identifier.type';
  * patch releases without warning._
  */
 export class ContainerRegistry {
+  /**
+   * Default scope used when service metadata does not specify one explicitly.
+   * This is configurable to support legacy singleton-by-default behavior.
+   */
+  private static defaultServiceScope: Exclude<ContainerScope, 'transient'> = 'singleton';
+
   /**
    * The list of all known container. Created containers are automatically added
    * to this list. Two container cannot be registered with the same ID.
@@ -28,6 +35,20 @@ export class ContainerRegistry {
    * container when registered via `Container.set()` or `@Service` decorator.
    */
   public static readonly defaultContainer: ContainerInstance = new ContainerInstance('default');
+
+  /**
+   * Returns the default service scope used by registration APIs.
+   */
+  public static getDefaultServiceScope(): Exclude<ContainerScope, 'transient'> {
+    return ContainerRegistry.defaultServiceScope;
+  }
+
+  /**
+   * Sets the default service scope used by registration APIs.
+   */
+  public static setDefaultServiceScope(scope: Exclude<ContainerScope, 'transient'>): void {
+    ContainerRegistry.defaultServiceScope = scope;
+  }
 
   /**
    * Marks a container as active while resolving a service instance.

@@ -66,12 +66,12 @@ describe('Standard Decorators Compatibility', function () {
   });
 
   it('should resolve Inject with standard field decorator in scoped containers', function () {
-    @Service()
+    @Service({ scope: 'container' })
     class Engine {}
 
     const fieldInitializer = createStandardFieldInitializer(() => Inject(() => Engine), 'engine');
 
-    @Service()
+    @Service({ scope: 'container' })
     class Car {
       public engine = fieldInitializer.call(this, undefined) as Engine;
     }

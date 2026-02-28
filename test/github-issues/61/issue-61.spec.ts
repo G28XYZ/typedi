@@ -6,7 +6,7 @@ describe('Github Issues', function () {
   beforeEach(() => Container.reset({ strategy: 'resetValue' }));
 
   it('#61 - Scoped container creates new instance of service every time', function () {
-    @Service()
+    @Service({ scope: 'container' })
     class Car {
       public serial = Math.random();
     }

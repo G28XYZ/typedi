@@ -138,8 +138,15 @@ export class ContainerInstance {
   /**
    * Sets a value for the given type or service name in the container.
    */
-  public set<T = unknown>(serviceOptions: ServiceOptions<T>): this {
+  public set<T = unknown>(serviceOptions: ServiceOptions<T>): this;
+  public set<T = unknown>(identifier: ServiceIdentifier<T>, value: T): this;
+  public set<T = unknown>(identifierOrOptions: ServiceIdentifier<T> | ServiceOptions<T>, value?: T): this {
     this.throwIfDisposed();
+
+    const serviceOptions: ServiceOptions<T> =
+      arguments.length === 2
+        ? ({ id: identifierOrOptions as ServiceIdentifier<T>, value } as ServiceOptions<T>)
+        : (identifierOrOptions as ServiceOptions<T>);
 
     /**
      * If the service is marked as singleton, we set it in the default container.
@@ -162,7 +169,7 @@ export class ContainerInstance {
       value: (serviceOptions as ServiceMetadata<T>).value || EMPTY_VALUE,
       multiple: serviceOptions.multiple || false,
       eager: serviceOptions.eager || false,
-      scope: serviceOptions.scope || 'container',
+      scope: serviceOptions.scope || ContainerRegistry.getDefaultServiceScope(),
       /** We allow overriding the above options via the received config object. */
       ...serviceOptions,
       referencedBy: new Map().set(this.id, this),
@@ -262,6 +269,21 @@ export class ContainerInstance {
    */
   public registerHandler(handler: Handler): ContainerInstance {
     this.handlers.push(handler);
+    return this;
+  }
+
+  /**
+   * Returns the default scope used when services are registered without explicit scope.
+   */
+  public getDefaultScope(): Exclude<ContainerScope, 'transient'> {
+    return ContainerRegistry.getDefaultServiceScope();
+  }
+
+  /**
+   * Sets the default scope used when services are registered without explicit scope.
+   */
+  public setDefaultScope(scope: Exclude<ContainerScope, 'transient'>): this {
+    ContainerRegistry.setDefaultServiceScope(scope);
     return this;
   }
 

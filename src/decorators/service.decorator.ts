@@ -15,7 +15,7 @@ function registerServiceInDefaultContainer<T>(
     factory: (options as any).factory || undefined,
     multiple: options.multiple || false,
     eager: options.eager || false,
-    scope: options.scope || 'container',
+    scope: options.scope || ContainerRegistry.getDefaultServiceScope(),
     referencedBy: new Map().set(ContainerRegistry.defaultContainer.id, ContainerRegistry.defaultContainer),
     value: EMPTY_VALUE,
   };

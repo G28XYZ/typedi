@@ -134,7 +134,7 @@ describe('Service Decorator', function () {
   });
 
   it('should support global services', function () {
-    @Service()
+    @Service({ scope: 'container' })
     class Engine {
       public name = 'sporty';
     }

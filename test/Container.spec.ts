@@ -44,6 +44,18 @@ describe('Container', function () {
       expect(Container.get(TestService).name).toBe('this is test');
     });
 
+    it('should support setting a class with legacy signature', function () {
+      class TestService {
+        constructor(public name: string) {}
+      }
+
+      const testService = new TestService('legacy class format');
+      Container.set(TestService, testService);
+
+      expect(Container.get(TestService)).toBe(testService);
+      expect(Container.get(TestService).name).toBe('legacy class format');
+    });
+
     it('should be able to set a named service', function () {
       class TestService {
         constructor(public name: string) {}
@@ -56,6 +68,18 @@ describe('Container', function () {
 
       expect(Container.get<TestService>('first.service').name).toBe('first');
       expect(Container.get<TestService>('second.service').name).toBe('second');
+    });
+
+    it('should support setting a named service with legacy signature', function () {
+      class TestService {
+        constructor(public name: string) {}
+      }
+
+      const testService = new TestService('legacy named format');
+      Container.set('named.service', testService);
+
+      expect(Container.get<TestService>('named.service')).toBe(testService);
+      expect(Container.get<TestService>('named.service').name).toBe('legacy named format');
     });
 
     it('should be able to set a tokenized service', function () {
@@ -75,6 +99,19 @@ describe('Container', function () {
       expect(Container.get(SecondTestToken).name).toBe('second');
     });
 
+    it('should support setting a tokenized service with legacy signature', function () {
+      class TestService {
+        constructor(public name: string) {}
+      }
+
+      const testToken = new Token<TestService>('legacy-token');
+      const testService = new TestService('legacy token format');
+      Container.set(testToken, testService);
+
+      expect(Container.get(testToken)).toBe(testService);
+      expect(Container.get(testToken).name).toBe('legacy token format');
+    });
+
     it('should override previous value if service is written second time', function () {
       class TestService {
         constructor(public name: string) {}
@@ -91,6 +128,40 @@ describe('Container', function () {
 
       expect(Container.get(TestToken)).toBe(secondService);
       expect(Container.get(TestToken).name).toBe('second');
+    });
+  });
+
+  describe('default scope', function () {
+    it('should use singleton as default scope when not specified', function () {
+      @Service()
+      class Car {
+        public serial = Math.random();
+      }
+
+      const rootInstance = Container.get(Car);
+      const scopedInstance = Container.of('default-scope-singleton').get(Car);
+
+      expect(rootInstance).toBe(scopedInstance);
+    });
+
+    it('should allow changing default scope to container', function () {
+      const originalDefaultScope = Container.getDefaultScope();
+
+      try {
+        Container.setDefaultScope('container');
+
+        @Service()
+        class Car {
+          public serial = Math.random();
+        }
+
+        const rootInstance = Container.get(Car);
+        const scopedInstance = Container.of('default-scope-container').get(Car);
+
+        expect(rootInstance).not.toBe(scopedInstance);
+      } finally {
+        Container.setDefaultScope(originalDefaultScope);
+      }
     });
   });
 
