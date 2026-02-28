@@ -24,6 +24,22 @@ describe('Service Decorator', function () {
     expect(Container.get('super.service')).not.toBeInstanceOf(TestService);
   });
 
+  it('should support legacy string identifier signature', function () {
+    @Service('legacy.named.service')
+    class LegacyNamedService {}
+
+    expect(Container.get('legacy.named.service')).toBeInstanceOf(LegacyNamedService);
+  });
+
+  it('should support legacy token identifier signature', function () {
+    const LegacyToken = new Token<LegacyTokenService>('legacy.token.service');
+
+    @Service(LegacyToken)
+    class LegacyTokenService {}
+
+    expect(Container.get(LegacyToken)).toBeInstanceOf(LegacyTokenService);
+  });
+
   it('should register class in the container, and its parameter dependencies should be properly initialized', function () {
     @Service()
     class TestService {}
