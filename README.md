@@ -1,10 +1,5 @@
 # TypeDI
 
-![Build Status](https://github.com/typestack/typedi/workflows/CI/badge.svg)
-[![codecov](https://codecov.io/gh/typestack/typedi/branch/master/graph/badge.svg)](https://codecov.io/gh/typestack/typedi)
-[![npm version](https://badge.fury.io/js/typedi.svg)](https://badge.fury.io/js/typedi)
-[![Dependency Status](https://david-dm.org/typestack/typedi.svg)](https://david-dm.org/typestack/typedi)
-
 TypeDI is a [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) tool for TypeScript and JavaScript. With it you can build well-structured and easily testable applications in Node or in the browser.
 
 Main features includes:
@@ -77,12 +72,4 @@ serviceInstance.injectedService.printMessage();
 
 The detailed usage guide and API documentation for the project can be found:
 
-- at [docs.typestack.community/typedi][docs-stable]
 - in the `./docs` folder of the repository
-
-[docs-stable]: https://docs.typestack.community/typedi/
-[docs-development]: https://docs.typestack.community/typedi/v/develop/
-
-## Contributing
-
-Please read our [contributing guidelines](./CONTRIBUTING.md) to get started.

@@ -18,10 +18,39 @@ export class ContainerRegistry {
   private static readonly containerMap: Map<ContainerIdentifier, ContainerInstance> = new Map();
 
   /**
+   * Stack of containers currently resolving service instances.
+   * Used by standard decorators to resolve dependencies from the correct container.
+   */
+  private static readonly resolutionContainerStack: ContainerInstance[] = [];
+
+  /**
    * The default global container. By default services are registered into this
    * container when registered via `Container.set()` or `@Service` decorator.
    */
   public static readonly defaultContainer: ContainerInstance = new ContainerInstance('default');
+
+  /**
+   * Marks a container as active while resolving a service instance.
+   */
+  public static pushResolutionContainer(container: ContainerInstance): void {
+    ContainerRegistry.resolutionContainerStack.push(container);
+  }
+
+  /**
+   * Removes the last active resolution container.
+   */
+  public static popResolutionContainer(): void {
+    ContainerRegistry.resolutionContainerStack.pop();
+  }
+
+  /**
+   * Returns the currently active resolution container or the default container.
+   */
+  public static getResolutionContainer(): ContainerInstance {
+    const activeContainer =
+      ContainerRegistry.resolutionContainerStack[ContainerRegistry.resolutionContainerStack.length - 1];
+    return activeContainer || ContainerRegistry.defaultContainer;
+  }
 
   /**
    * Registers the given container instance or throws an error.

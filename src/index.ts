@@ -1,12 +1,7 @@
 /**
- * We have a hard dependency on reflect-metadata package. Without it the
- * dependency lookup won't work, so we warn users when it's not loaded.
+ * reflect-metadata is optional when using standard decorators with explicit injection identifiers.
+ * Legacy decorators and implicit type inference still rely on Reflect.getMetadata when available.
  */
-if (!Reflect || !(Reflect as any).getMetadata) {
-  throw new Error(
-    'TypeDI requires "Reflect.getMetadata" to work. Please import the "reflect-metadata" package at the very first line of your application.'
-  );
-}
 
 /** This is an internal package, so we don't re-export it on purpose. */
 import { ContainerRegistry } from './container-registry.class';

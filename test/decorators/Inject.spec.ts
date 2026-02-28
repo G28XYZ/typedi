@@ -107,4 +107,18 @@ describe('Inject Decorator', function () {
     expect(instance).toBeInstanceOf(TestService);
     expect(instance.myClass).toBeInstanceOf(InjectedClass);
   });
+
+  it('should inject service into manually created instance when resolveNew option is enabled', function () {
+    @Service({ id: 'manual.resolve-new' })
+    class InjectedService {}
+
+    class PlainClass {
+      @Inject('manual.resolve-new', { resolveNew: true })
+      injectedService: unknown;
+    }
+
+    const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeInstanceOf(InjectedService);
+  });
 });

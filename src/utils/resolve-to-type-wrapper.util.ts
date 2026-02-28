@@ -14,9 +14,9 @@ import { ServiceIdentifier } from '../types/service-identifier.type';
 export function resolveToTypeWrapper(
   typeOrIdentifier: ((type?: never) => Constructable<unknown>) | ServiceIdentifier<unknown> | undefined,
   target: Object,
-  propertyName: string | Symbol,
+  propertyName: string | symbol | undefined,
   index?: number
-): { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier } {
+): { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier } | undefined {
   /**
    * ? We want to error out as soon as possible when looking up services to inject, however
    * ? we cannot determine the type at decorator execution when cyclic dependencies are involved
@@ -26,7 +26,10 @@ export function resolveToTypeWrapper(
    * ?  - the lazyType is executed in the handler so we never have a JS error
    * ?  - the eagerType is checked when decorator is running and an error is raised if an unknown type is encountered
    */
-  let typeWrapper!: { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier };
+  let typeWrapper: { eagerType: ServiceIdentifier | null; lazyType: (type?: never) => ServiceIdentifier } | undefined;
+  const reflectMetadataApi: { getMetadata?: CallableFunction } | undefined = Reflect as
+    | { getMetadata?: CallableFunction }
+    | undefined;
 
   /** If requested type is explicitly set via a string ID or token, we set it explicitly. */
   if ((typeOrIdentifier && typeof typeOrIdentifier === 'string') || typeOrIdentifier instanceof Token) {
@@ -40,15 +43,19 @@ export function resolveToTypeWrapper(
   }
 
   /** If no explicit type is set and handler registered for a class property, we need to get the property type. */
-  if (!typeOrIdentifier && propertyName) {
-    const identifier = (Reflect as any).getMetadata('design:type', target, propertyName);
+  if (!typeOrIdentifier && propertyName !== undefined) {
+    const identifier = reflectMetadataApi?.getMetadata?.('design:type', target, propertyName);
 
     typeWrapper = { eagerType: identifier, lazyType: () => identifier };
   }
 
   /** If no explicit type is set and handler registered for a constructor parameter, we need to get the parameter types. */
   if (!typeOrIdentifier && typeof index == 'number' && Number.isInteger(index)) {
-    const paramTypes: ServiceIdentifier[] = (Reflect as any).getMetadata('design:paramtypes', target, propertyName);
+    const paramTypes: ServiceIdentifier[] | undefined = reflectMetadataApi?.getMetadata?.(
+      'design:paramtypes',
+      target,
+      propertyName
+    );
     /** It's not guaranteed, that we find any types for the constructor. */
     const identifier = paramTypes?.[index];
 

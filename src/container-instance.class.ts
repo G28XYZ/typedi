@@ -337,57 +337,62 @@ export class ContainerInstance {
       throw new CannotInstantiateValueError(serviceMetadata.id);
     }
 
-    /**
-     * If a factory is defined it takes priority over creating an instance via `new`.
-     * The return value of the factory is not checked, we believe by design that the user knows what he/she is doing.
-     */
-    if (serviceMetadata.factory) {
+    ContainerRegistry.pushResolutionContainer(this);
+    try {
       /**
-       * If we received the factory in the [Constructable<Factory>, "functionName"] format, we need to create the
-       * factory first and then call the specified function on it.
+       * If a factory is defined it takes priority over creating an instance via `new`.
+       * The return value of the factory is not checked, we believe by design that the user knows what he/she is doing.
        */
-      if (serviceMetadata.factory instanceof Array) {
-        let factoryInstance;
+      if (serviceMetadata.factory) {
+        /**
+         * If we received the factory in the [Constructable<Factory>, "functionName"] format, we need to create the
+         * factory first and then call the specified function on it.
+         */
+        if (serviceMetadata.factory instanceof Array) {
+          let factoryInstance;
 
-        try {
-          /** Try to get the factory from TypeDI first, if failed, fall back to simply initiating the class. */
-          factoryInstance = this.get<any>(serviceMetadata.factory[0]);
-        } catch (error) {
-          if (error instanceof ServiceNotFoundError) {
-            factoryInstance = new serviceMetadata.factory[0]();
-          } else {
-            throw error;
+          try {
+            /** Try to get the factory from TypeDI first, if failed, fall back to simply initiating the class. */
+            factoryInstance = this.get<any>(serviceMetadata.factory[0]);
+          } catch (error) {
+            if (error instanceof ServiceNotFoundError) {
+              factoryInstance = new serviceMetadata.factory[0]();
+            } else {
+              throw error;
+            }
           }
+
+          value = factoryInstance[serviceMetadata.factory[1]](this, serviceMetadata.id);
+        } else {
+          /** If only a simple function was provided we simply call it. */
+          value = serviceMetadata.factory(this, serviceMetadata.id);
         }
-
-        value = factoryInstance[serviceMetadata.factory[1]](this, serviceMetadata.id);
-      } else {
-        /** If only a simple function was provided we simply call it. */
-        value = serviceMetadata.factory(this, serviceMetadata.id);
       }
-    }
 
-    /**
-     * If no factory was provided and only then, we create the instance from the type if it was set.
-     */
-    if (!serviceMetadata.factory && serviceMetadata.type) {
-      const constructableTargetType: Constructable<unknown> = serviceMetadata.type;
-      // setup constructor parameters for a newly initialized service
-      const paramTypes: unknown[] = (Reflect as any)?.getMetadata('design:paramtypes', constructableTargetType) || [];
-      const params = this.initializeParams(constructableTargetType, paramTypes);
+      /**
+       * If no factory was provided and only then, we create the instance from the type if it was set.
+       */
+      if (!serviceMetadata.factory && serviceMetadata.type) {
+        const constructableTargetType: Constructable<unknown> = serviceMetadata.type;
+        // setup constructor parameters for a newly initialized service
+        const paramTypes: unknown[] = (Reflect as any)?.getMetadata('design:paramtypes', constructableTargetType) || [];
+        const params = this.initializeParams(constructableTargetType, paramTypes);
 
-      // "extra feature" - always pass container instance as the last argument to the service function
-      // this allows us to support javascript where we don't have decorators and emitted metadata about dependencies
-      // need to be injected, and user can use provided container to get instances he needs
-      params.push(this);
+        // "extra feature" - always pass container instance as the last argument to the service function
+        // this allows us to support javascript where we don't have decorators and emitted metadata about dependencies
+        // need to be injected, and user can use provided container to get instances he needs
+        params.push(this);
 
-      value = new constructableTargetType(...params);
+        value = new constructableTargetType(...params);
 
-      // TODO: Calling this here, leads to infinite loop, because @Inject decorator registerds a handler
-      // TODO: which calls Container.get, which will check if the requested type has a value set and if not
-      // TODO: it will start the instantiation process over. So this is currently called outside of the if branch
-      // TODO: after the current value has been assigned to the serviceMetadata.
-      // this.applyPropertyHandlers(constructableTargetType, value as Constructable<unknown>);
+        // TODO: Calling this here, leads to infinite loop, because @Inject decorator registerds a handler
+        // TODO: which calls Container.get, which will check if the requested type has a value set and if not
+        // TODO: it will start the instantiation process over. So this is currently called outside of the if branch
+        // TODO: after the current value has been assigned to the serviceMetadata.
+        // this.applyPropertyHandlers(constructableTargetType, value as Constructable<unknown>);
+      }
+    } finally {
+      ContainerRegistry.popResolutionContainer();
     }
 
     /** If this is not a transient service, and we resolved something, then we set it as the value. */
@@ -458,8 +463,9 @@ export class ContainerInstance {
       if (typeof handler.index === 'number') return;
       if (handler.object.constructor !== target && !(target.prototype instanceof handler.object.constructor)) return;
 
-      if (handler.propertyName) {
-        instance[handler.propertyName] = handler.value(this);
+      if (handler.propertyName !== undefined) {
+        const propertyAwareInstance = instance as Record<string | symbol, unknown>;
+        propertyAwareInstance[handler.propertyName] = handler.value(this);
       }
     });
   }
