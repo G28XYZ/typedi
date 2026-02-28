@@ -4,6 +4,7 @@ import { Service } from '../../src/decorators/service.decorator';
 import { Inject } from '../../src/decorators/inject.decorator';
 import { Token } from '../../src/token.class';
 import { InjectMany } from '../../src/decorators/inject-many.decorator';
+import { ServiceNotFoundError } from '../../src/error/service-not-found.error';
 
 describe('Inject Decorator', function () {
   beforeEach(() => Container.reset({ strategy: 'resetValue' }));
@@ -118,6 +119,90 @@ describe('Inject Decorator', function () {
     }
 
     const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeInstanceOf(InjectedService);
+  });
+
+  it('should keep default behavior for manually created instance without resolveNew option', function () {
+    @Service({ id: 'manual.default' })
+    class InjectedService {}
+
+    class PlainClass {
+      @Inject('manual.default')
+      injectedService: unknown;
+    }
+
+    const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeUndefined();
+  });
+
+  it('should inject token service into manually created instance when resolveNew option is enabled', function () {
+    const serviceToken = new Token<unknown>('manual.token');
+
+    @Service({ id: serviceToken })
+    class InjectedService {}
+
+    class PlainClass {
+      @Inject(serviceToken, { resolveNew: true })
+      injectedService: unknown;
+    }
+
+    const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeInstanceOf(InjectedService);
+  });
+
+  it('should inject type function service into manually created instance when resolveNew option is enabled', function () {
+    @Service()
+    class InjectedService {}
+
+    class PlainClass {
+      @Inject(() => InjectedService, { resolveNew: true })
+      injectedService: unknown;
+    }
+
+    const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeInstanceOf(InjectedService);
+  });
+
+  it('should ignore resolveNew option for constructor parameter injection when instance is created with new', function () {
+    @Service({ id: 'manual.constructor' })
+    class InjectedService {}
+
+    class PlainClass {
+      constructor(@Inject('manual.constructor', { resolveNew: true }) public injectedService?: unknown) {}
+    }
+
+    const instance = new PlainClass();
+
+    expect(instance.injectedService).toBeUndefined();
+  });
+
+  it('should throw ServiceNotFoundError when resolveNew lookup fails', function () {
+    class PlainClass {
+      @Inject('manual.missing', { resolveNew: true })
+      missingService: unknown;
+    }
+
+    const instance = new PlainClass();
+
+    expect(() => instance.missingService).toThrow(ServiceNotFoundError);
+  });
+
+  it('should resolve inherited property decorator when resolveNew option is enabled', function () {
+    @Service({ id: 'manual.inherited' })
+    class InjectedService {}
+
+    class BaseClass {
+      @Inject('manual.inherited', { resolveNew: true })
+      injectedService: unknown;
+    }
+
+    class ChildClass extends BaseClass {}
+
+    const instance = new ChildClass();
 
     expect(instance.injectedService).toBeInstanceOf(InjectedService);
   });
