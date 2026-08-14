@@ -24,6 +24,6 @@ describe('github issues > #42 Exception not thrown on missing binding', function
       }
       // We doesn't even need to call `Container.get(CoffeeMaker);`, TypeDI will detect this error, while
       // the JS code is parsed and decorators are executed.
-    }).toThrowError(CannotInjectValueError);
+    }).toThrow(CannotInjectValueError);
   });
 });

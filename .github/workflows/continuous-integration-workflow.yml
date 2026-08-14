@@ -22,6 +22,7 @@ jobs:
           node-version: 'lts/*'
       - run: npm ci --ignore-scripts
       - run: npm run test:ci
+      - run: npm run test:tc39
   build:
     name: Build
     runs-on: ubuntu-latest

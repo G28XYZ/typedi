@@ -16,7 +16,7 @@ export * from './error/service-not-found.error';
 
 export { Handler } from './interfaces/handler.interface';
 export { ServiceMetadata } from './interfaces/service-metadata.interface';
-export { ServiceOptions } from './interfaces/service-options.interface';
+export { ServiceDecoratorOptions, ServiceOptions } from './interfaces/service-options.interface';
 export { Constructable } from './types/constructable.type';
 export { ServiceIdentifier } from './types/service-identifier.type';
 

@@ -1,4 +1,4 @@
-import { Container, Inject, Service } from '../src/index';
+import { Container, Inject, InjectMany, Service } from '../src/index';
 
 // In TS5+ standard decorators mode (TC39), this is the regular usage style.
 @Service()
@@ -27,5 +27,18 @@ class ManualController {
   }
 }
 
+@Service({ id: 'tc39.plugins', multiple: true })
+class FirstPlugin {}
+
+@Service({ id: 'tc39.plugins', multiple: true })
+class SecondPlugin {}
+
+@Service()
+class PluginHost {
+  @InjectMany('tc39.plugins')
+  public plugins!: unknown[];
+}
+
 Container.get(Controller).run();
 new ManualController().run();
+console.log(`[plugins] resolved ${Container.get(PluginHost).plugins.length} TC39 services`);

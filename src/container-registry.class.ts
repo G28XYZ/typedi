@@ -10,6 +10,9 @@ import { ContainerScope } from './types/container-scope.type';
  * patch releases without warning._
  */
 export class ContainerRegistry {
+  /** Lazily created to avoid executing the ContainerInstance/ContainerRegistry cycle during module initialization. */
+  private static defaultContainerInstance: ContainerInstance | undefined;
+
   /**
    * Default scope used when service metadata does not specify one explicitly.
    * This is configurable to support legacy singleton-by-default behavior.
@@ -34,7 +37,13 @@ export class ContainerRegistry {
    * The default global container. By default services are registered into this
    * container when registered via `Container.set()` or `@Service` decorator.
    */
-  public static readonly defaultContainer: ContainerInstance = new ContainerInstance('default');
+  public static get defaultContainer(): ContainerInstance {
+    if (!ContainerRegistry.defaultContainerInstance) {
+      ContainerRegistry.defaultContainerInstance = new ContainerInstance('default');
+    }
+
+    return ContainerRegistry.defaultContainerInstance;
+  }
 
   /**
    * Returns the default service scope used by registration APIs.
@@ -87,8 +96,10 @@ export class ContainerRegistry {
       throw new Error('Only ContainerInstance instances can be registered.');
     }
 
-    /** If we already set the default container (in index) then no-one else can register a default. */
-    if (!!ContainerRegistry.defaultContainer && container.id === 'default') {
+    if (container.id === 'default') {
+      /** The lazy default container registers itself while it is being constructed. */
+      if (ContainerRegistry.defaultContainerInstance === undefined) return;
+
       // TODO: Create custom error for this.
       throw new Error('You cannot register a container with the "default" ID.');
     }
@@ -99,6 +110,15 @@ export class ContainerRegistry {
     }
 
     ContainerRegistry.containerMap.set(container.id, container);
+  }
+
+  /** Removes a non-default container from the registry if the exact instance is currently registered. */
+  public static unregisterContainer(container: ContainerInstance): void {
+    if (container.id === 'default') return;
+
+    if (ContainerRegistry.containerMap.get(container.id) === container) {
+      ContainerRegistry.containerMap.delete(container.id);
+    }
   }
 
   /**

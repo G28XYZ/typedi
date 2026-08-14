@@ -17,6 +17,7 @@ jobs:
       - run: npm run prettier:check
       - run: npm run lint:check
       - run: npm run test:ci
+      - run: npm run test:tc39
       - run: npm run build:es2015
       - run: npm run build:esm5
       - run: npm run build:cjs

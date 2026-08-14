@@ -1,6 +1,6 @@
 import { ContainerRegistry } from '../container-registry.class';
 import { ServiceMetadata } from '../interfaces/service-metadata.interface';
-import { ServiceOptions } from '../interfaces/service-options.interface';
+import { ServiceDecoratorOptions, ServiceOptions } from '../interfaces/service-options.interface';
 import { EMPTY_VALUE } from '../empty.const';
 import { Constructable } from '../types/constructable.type';
 import { Token } from '../token.class';
@@ -8,20 +8,20 @@ import { isStandardClassDecoratorContext } from '../utils/decorator-context.util
 
 function registerServiceInDefaultContainer<T>(
   targetConstructor: Constructable<T> | null,
-  options: ServiceOptions<T>
+  options: ServiceDecoratorOptions<T>
 ): void {
   const serviceMetadata: ServiceMetadata<T> = {
-    id: (options.id || targetConstructor) as ServiceMetadata<T>['id'],
+    id: (options.id ?? targetConstructor) as ServiceMetadata<T>['id'],
     type: targetConstructor,
-    factory: (options as any).factory || undefined,
-    multiple: options.multiple || false,
-    eager: options.eager || false,
-    scope: options.scope || ContainerRegistry.getDefaultServiceScope(),
+    factory: options.factory,
+    multiple: options.multiple ?? false,
+    eager: options.eager ?? false,
+    scope: options.scope ?? ContainerRegistry.getDefaultServiceScope(),
     referencedBy: new Map().set(ContainerRegistry.defaultContainer.id, ContainerRegistry.defaultContainer),
     value: EMPTY_VALUE,
   };
 
-  ContainerRegistry.defaultContainer.set(serviceMetadata);
+  ContainerRegistry.defaultContainer.set(serviceMetadata as unknown as ServiceOptions<T>);
 }
 
 /**
@@ -29,13 +29,13 @@ function registerServiceInDefaultContainer<T>(
  */
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export function Service<T = unknown>(): Function;
-export function Service<T = unknown>(serviceName: string): Function;
+export function Service(serviceName: string): Function;
 export function Service<T = unknown>(token: Token<T>): Function;
-export function Service<T = unknown>(options: ServiceOptions<T>): Function;
-export function Service<T>(optionsOrId: ServiceOptions<T> | string | Token<T> = {}): Function {
-  const options: ServiceOptions<T> =
+export function Service<T = unknown>(options: ServiceDecoratorOptions<T>): Function;
+export function Service<T>(optionsOrId: ServiceDecoratorOptions<T> | string | Token<T> = {}): Function {
+  const options: ServiceDecoratorOptions<T> =
     typeof optionsOrId === 'string' || optionsOrId instanceof Token
-      ? ({ id: optionsOrId } as ServiceOptions<T>)
+      ? ({ id: optionsOrId } as ServiceDecoratorOptions<T>)
       : optionsOrId;
 
   return (targetConstructor: Function, decoratorContext?: unknown) => {

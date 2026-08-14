@@ -28,7 +28,7 @@ export class ContainerInstance {
    * generated one is stored here. This is handled like this to allow simplifying
    * the inner workings of the service instance.
    */
-  private multiServiceIds: Map<ServiceIdentifier, { tokens: Token<unknown>[]; scope: ContainerScope }> = new Map();
+  private multiServiceIds: Map<ServiceIdentifier, { tokens: Token<unknown>[] }> = new Map();
 
   /**
    * All registered handlers. The @Inject() decorator uses handlers internally to mark a property for injection.
@@ -52,7 +52,9 @@ export class ContainerInstance {
      * TODO: This is to replicate the old functionality. This should be copied only
      * TODO: if the container decides to inherit registered classes from a parent container.
      */
-    this.handlers = ContainerRegistry.defaultContainer?.handlers || [];
+    if (id !== 'default') {
+      this.handlers = ContainerRegistry.defaultContainer.handlers;
+    }
   }
 
   /**
@@ -93,18 +95,20 @@ export class ContainerInstance {
      */
     if (global && this !== ContainerRegistry.defaultContainer) {
       const clonedService = { ...global };
-      clonedService.value = EMPTY_VALUE;
+      clonedService.value = global.type || global.factory ? EMPTY_VALUE : global.value;
 
       /**
        * We need to immediately set the empty value from the root container
        * to prevent infinite lookup in cyclic dependencies.
        */
-      this.set(clonedService);
+      this.set(clonedService as unknown as ServiceOptions<unknown>);
 
-      const value = this.getServiceValue(clonedService);
-      this.set({ ...clonedService, value });
+      const localMetadata = this.metadataMap.get(identifier);
+      if (!localMetadata) {
+        throw new ServiceNotFoundError(identifier);
+      }
 
-      return value;
+      return this.getServiceValue(localMetadata) as T;
     }
 
     throw new ServiceNotFoundError(identifier);
@@ -118,18 +122,11 @@ export class ContainerInstance {
     this.throwIfDisposed();
 
     const globalIdMap = ContainerRegistry.defaultContainer.multiServiceIds.get(identifier);
-    const localIdMap = this.multiServiceIds.get(identifier);
+    const idMap = this.multiServiceIds.get(identifier) || globalIdMap;
 
-    /**
-     * If the service is registered as singleton we load it from default
-     * container, otherwise we use the local one.
-     */
-    if (globalIdMap?.scope === 'singleton') {
-      return globalIdMap.tokens.map(generatedId => ContainerRegistry.defaultContainer.get<T>(generatedId));
-    }
-
-    if (localIdMap) {
-      return localIdMap.tokens.map(generatedId => this.get<T>(generatedId));
+    if (idMap) {
+      /** Each masked service keeps its own scope, so resolution must happen through the requesting container. */
+      return idMap.tokens.map(generatedId => this.get<T>(generatedId));
     }
 
     throw new ServiceNotFoundError(identifier);
@@ -163,15 +160,13 @@ export class ContainerInstance {
        * Typescript cannot understand that if ID doesn't exists then type must exists based on the
        * typing so we need to explicitly cast this to a `ServiceIdentifier`
        */
-      id: ((serviceOptions as any).id || (serviceOptions as any).type) as ServiceIdentifier,
-      type: (serviceOptions as ServiceMetadata<T>).type || null,
-      factory: (serviceOptions as ServiceMetadata<T>).factory,
-      value: (serviceOptions as ServiceMetadata<T>).value || EMPTY_VALUE,
-      multiple: serviceOptions.multiple || false,
-      eager: serviceOptions.eager || false,
-      scope: serviceOptions.scope || ContainerRegistry.getDefaultServiceScope(),
-      /** We allow overriding the above options via the received config object. */
-      ...serviceOptions,
+      id: (serviceOptions.id ?? serviceOptions.type) as ServiceIdentifier,
+      type: serviceOptions.type ?? null,
+      factory: serviceOptions.factory,
+      value: Object.prototype.hasOwnProperty.call(serviceOptions, 'value') ? serviceOptions.value : EMPTY_VALUE,
+      multiple: serviceOptions.multiple ?? false,
+      eager: serviceOptions.eager ?? false,
+      scope: serviceOptions.scope ?? ContainerRegistry.getDefaultServiceScope(),
       referencedBy: new Map().set(this.id, this),
     };
 
@@ -183,7 +178,7 @@ export class ContainerInstance {
       if (existingMultiGroup) {
         existingMultiGroup.tokens.push(maskedToken);
       } else {
-        this.multiServiceIds.set(newMetadata.id, { scope: newMetadata.scope, tokens: [maskedToken] });
+        this.multiServiceIds.set(newMetadata.id, { tokens: [maskedToken] });
       }
 
       /**
@@ -229,10 +224,22 @@ export class ContainerInstance {
       identifierOrIdentifierArray.forEach(id => this.remove(id));
     } else {
       const serviceMetadata = this.metadataMap.get(identifierOrIdentifierArray);
+      const multiServiceGroup = this.multiServiceIds.get(identifierOrIdentifierArray);
 
       if (serviceMetadata) {
         this.disposeServiceInstance(serviceMetadata);
         this.metadataMap.delete(identifierOrIdentifierArray);
+      }
+
+      if (multiServiceGroup) {
+        multiServiceGroup.tokens.forEach(token => {
+          const maskedMetadata = this.metadataMap.get(token);
+          if (maskedMetadata) {
+            this.disposeServiceInstance(maskedMetadata);
+            this.metadataMap.delete(token);
+          }
+        });
+        this.multiServiceIds.delete(identifierOrIdentifierArray);
       }
     }
 
@@ -323,6 +330,7 @@ export class ContainerInstance {
 
     /** We mark the container as disposed, forbidding any further interaction with it. */
     this.disposed = true;
+    ContainerRegistry.unregisterContainer(this);
 
     /**
      * Placeholder, this function returns a promise in preparation to support async services.
@@ -428,8 +436,16 @@ export class ContainerInstance {
       throw new CannotInstantiateValueError(serviceMetadata.id);
     }
 
-    if (serviceMetadata.type) {
-      this.applyPropertyHandlers(serviceMetadata.type, value as Record<string, any>);
+    try {
+      if (serviceMetadata.type) {
+        this.applyPropertyHandlers(serviceMetadata.type, value as Record<string, any>);
+      }
+    } catch (error) {
+      /** A failed injection must not leave a partially initialized singleton/container value cached. */
+      if (serviceMetadata.scope !== 'transient' && serviceMetadata.value === value) {
+        serviceMetadata.value = EMPTY_VALUE;
+      }
+      throw error;
     }
 
     return value;

@@ -61,10 +61,17 @@ const requestContainer = Container.of('request-123');
 const controller = requestContainer.get(RequestController);
 ```
 
-Reset scoped container explicitly:
+Reset a scoped container while keeping its identifier registered:
 
 ```ts
 requestContainer.reset({ strategy: 'resetValue' });
+```
+
+Dispose request/session containers when their lifecycle ends. Disposal releases their services and removes the identifier
+from the registry so it can be reused:
+
+```ts
+await requestContainer.dispose();
 ```
 
 ## Default scope configuration

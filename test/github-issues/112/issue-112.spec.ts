@@ -32,19 +32,19 @@ describe('Github Issues', function () {
     expect(rootClassA.classB).toBeInstanceOf(ClassB);
     expect(rootClassB).toBeInstanceOf(ClassB);
     expect(rootClassB.classA).toBeInstanceOf(ClassA);
-    expect(rootClassA).toStrictEqual(rootClassB.classA);
-    expect(rootClassB).toStrictEqual(rootClassA.classB);
+    expect(rootClassA).toBe(rootClassB.classA);
+    expect(rootClassB).toBe(rootClassA.classB);
 
     /** Values should be properly resolved in the scoped. */
     expect(scopedClassA).toBeInstanceOf(ClassA);
     expect(scopedClassA.classB).toBeInstanceOf(ClassB);
     expect(scopedClassB).toBeInstanceOf(ClassB);
     expect(scopedClassB.classA).toBeInstanceOf(ClassA);
-    expect(scopedClassA).toStrictEqual(scopedClassB.classA);
-    expect(scopedClassB).toStrictEqual(scopedClassA.classB);
+    expect(scopedClassA).toBe(scopedClassB.classA);
+    expect(scopedClassB).toBe(scopedClassA.classB);
 
     /** Two container should not share the exact same instances. */
-    expect(rootClassA).not.toStrictEqual(scopedClassA);
-    expect(rootClassB).not.toStrictEqual(scopedClassB);
+    expect(rootClassA).not.toBe(scopedClassA);
+    expect(rootClassB).not.toBe(scopedClassB);
   });
 });

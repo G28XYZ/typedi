@@ -47,6 +47,8 @@ requestContainer.reset({ strategy: 'resetValue' });
 // or requestContainer.reset({ strategy: 'resetServices' });
 ```
 
+Reset keeps the scoped container registered. Use `await requestContainer.dispose()` when a request/session scope ends.
+
 ### Function-style `Service(...)` API
 
 The old function-style API is not supported:

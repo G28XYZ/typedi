@@ -42,3 +42,9 @@ class RequestCache {}
 const requestContainer = Container.of('request-a');
 requestContainer.reset({ strategy: 'resetValue' });
 ```
+
+`reset` keeps the container registered. For request/session containers, dispose them when the scope ends:
+
+```ts
+await requestContainer.dispose();
+```
