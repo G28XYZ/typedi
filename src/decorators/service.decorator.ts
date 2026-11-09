@@ -29,7 +29,8 @@ function registerServiceInDefaultContainer<T>(
  */
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export function Service<T = unknown>(): Function;
-export function Service(serviceName: string): Function;
+/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+export function Service<T = unknown>(serviceName: string): Function;
 export function Service<T = unknown>(token: Token<T>): Function;
 export function Service<T = unknown>(options: ServiceDecoratorOptions<T>): Function;
 export function Service<T>(optionsOrId: ServiceDecoratorOptions<T> | string | Token<T> = {}): Function {

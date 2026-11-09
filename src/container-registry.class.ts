@@ -23,7 +23,7 @@ export class ContainerRegistry {
    * The list of all known container. Created containers are automatically added
    * to this list. Two container cannot be registered with the same ID.
    *
-   * This map doesn't contains the default container.
+   * This map also contains the default container once it has been initialized.
    */
   private static readonly containerMap: Map<ContainerIdentifier, ContainerInstance> = new Map();
 
@@ -33,16 +33,24 @@ export class ContainerRegistry {
    */
   private static readonly resolutionContainerStack: ContainerInstance[] = [];
 
+  private static creatingDefaultContainer: boolean = false;
+
   /**
    * The default global container. By default services are registered into this
    * container when registered via `Container.set()` or `@Service` decorator.
    */
   public static get defaultContainer(): ContainerInstance {
-    if (!ContainerRegistry.defaultContainerInstance) {
-      ContainerRegistry.defaultContainerInstance = new ContainerInstance('default');
+    if (ContainerRegistry.defaultContainerInstance) {
+      return ContainerRegistry.defaultContainerInstance;
     }
 
-    return ContainerRegistry.defaultContainerInstance;
+    // Defer construction until both sides of the registry/container import cycle are initialized.
+    ContainerRegistry.creatingDefaultContainer = true;
+    try {
+      return new ContainerInstance('default');
+    } finally {
+      ContainerRegistry.creatingDefaultContainer = false;
+    }
   }
 
   /**
@@ -96,10 +104,11 @@ export class ContainerRegistry {
       throw new Error('Only ContainerInstance instances can be registered.');
     }
 
-    if (container.id === 'default') {
-      /** The lazy default container registers itself while it is being constructed. */
-      if (ContainerRegistry.defaultContainerInstance === undefined) return;
-
+    /** Only the registry may create the default container. */
+    if (
+      container.id === 'default' &&
+      (!ContainerRegistry.creatingDefaultContainer || ContainerRegistry.defaultContainerInstance)
+    ) {
       // TODO: Create custom error for this.
       throw new Error('You cannot register a container with the "default" ID.');
     }
@@ -110,6 +119,11 @@ export class ContainerRegistry {
     }
 
     ContainerRegistry.containerMap.set(container.id, container);
+
+    if (container.id === 'default') {
+      // Cache the default instance as soon as its constructor registers it.
+      ContainerRegistry.defaultContainerInstance = container;
+    }
   }
 
   /** Removes a non-default container from the registry if the exact instance is currently registered. */

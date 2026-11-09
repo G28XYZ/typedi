@@ -2,6 +2,7 @@ import { ContainerRegistry } from '../container-registry.class';
 import { Token } from '../token.class';
 import { CannotInjectValueError } from '../error/cannot-inject-value.error';
 import { resolveToTypeWrapper } from '../utils/resolve-to-type-wrapper.util';
+import { createStandardPropertyDecorator } from '../utils/property-injection.util';
 import { Constructable } from '../types/constructable.type';
 import { ServiceIdentifier } from '../types/service-identifier.type';
 import {
@@ -83,25 +84,17 @@ function resolveIdentifierFromStandardDecorator(
 }
 
 function createStandardInjectManyDecorator(
+  target: unknown,
   typeOrIdentifier: ((type?: never) => Constructable<unknown>) | ServiceIdentifier<unknown> | undefined,
   context: StandardClassMemberDecoratorContext
 ) {
-  const resolveInjectedValues = function (this: unknown): unknown {
-    const identifier = resolveIdentifierFromStandardDecorator(typeOrIdentifier, context, this);
-    return ContainerRegistry.getResolutionContainer().getMany(identifier);
-  };
-
-  if (context.kind === 'accessor') {
-    return {
-      init(this: unknown): unknown {
-        return resolveInjectedValues.call(this);
-      },
+  return createStandardPropertyDecorator(target, context, instance => {
+    const container = ContainerRegistry.getResolutionContainer();
+    return () => {
+      const identifier = resolveIdentifierFromStandardDecorator(typeOrIdentifier, context, instance);
+      return container.getMany(identifier);
     };
-  }
-
-  return function (this: unknown, _initialValue: unknown): unknown {
-    return resolveInjectedValues.call(this);
-  };
+  });
 }
 
 function createLegacyInjectManyDecorator(
@@ -144,7 +137,7 @@ export function InjectMany(
 ): Function {
   return function (target: unknown, propertyNameOrContext: string | symbol | unknown, index?: number): unknown {
     if (isStandardClassMemberDecoratorContext(propertyNameOrContext)) {
-      return createStandardInjectManyDecorator(typeOrIdentifier, propertyNameOrContext);
+      return createStandardInjectManyDecorator(target, typeOrIdentifier, propertyNameOrContext);
     }
 
     createLegacyInjectManyDecorator(

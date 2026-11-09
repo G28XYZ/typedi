@@ -20,7 +20,8 @@ TypeDI — это библиотека [внедрения зависимост�
 npm install typedi reflect-metadata
 ```
 
-Импортируйте `reflect-metadata` в **самой первой строке** приложения:
+Для legacy-декораторов с автоматическим определением типов импортируйте `reflect-metadata`
+в **самой первой строке** приложения:
 
 ```ts
 import 'reflect-metadata';
@@ -49,6 +50,15 @@ TypeDI поддерживает два режима:
 - `@Inject` / `@InjectMany` работают для `field` / `accessor`.
 - Для объектов, созданных вручную через `new`, используйте `@Inject(..., { resolveNew: true })`.
 - Parameter decorators конструктора в стандарте TC39 не поддерживаются.
+
+При явном указании зависимостей на свойствах (`@Inject(() => MyService)` или `@Inject(token)`)
+в режиме TC39 пакет `reflect-metadata` не требуется.
+
+В legacy-режиме с `useDefineForClassFields: true` для `resolveNew` объявляйте внедряемые свойства
+через `declare dependency: Dependency`. Такое объявление не создаёт собственное поле, которое
+затеняет getter декоратора. Обычное `dependency!: Dependency` в этом сочетании не поддерживается;
+другой вариант — `useDefineForClassFields: false`. Это ограничение legacy-декораторов свойств,
+и `@Service()` его не снимает.
 
 ## Basic Usage
 

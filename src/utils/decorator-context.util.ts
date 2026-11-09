@@ -14,6 +14,10 @@ export interface StandardClassDecoratorContext extends StandardDecoratorContext 
 export interface StandardClassMemberDecoratorContext extends StandardDecoratorContext {
   kind: 'field' | 'accessor';
   name: string | symbol;
+  access?: {
+    get?: (instance: object) => unknown;
+    set: (instance: object, value: unknown) => void;
+  };
 }
 
 export function isStandardDecoratorContext(value: unknown): value is StandardDecoratorContext {

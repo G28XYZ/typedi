@@ -1,8 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "target": "es2022",
     "experimentalDecorators": false,
-    "emitDecoratorMetadata": false
+    "emitDecoratorMetadata": false,
+    "useDefineForClassFields": true
   },
   "include": ["./tc39-decorators.ts", "../src/**/*.ts"]
 }

@@ -4,6 +4,7 @@ import { CannotInjectValueError } from '../error/cannot-inject-value.error';
 import { ServiceIdentifier } from '../types/service-identifier.type';
 import { Constructable } from '../types/constructable.type';
 import { resolveToTypeWrapper } from '../utils/resolve-to-type-wrapper.util';
+import { createStandardPropertyDecorator } from '../utils/property-injection.util';
 import {
   isStandardClassMemberDecoratorContext,
   StandardClassMemberDecoratorContext,
@@ -11,7 +12,9 @@ import {
 
 export interface InjectOptions {
   /**
-   * Enables lazy property resolution for instances created with `new`.
+   * Enables property resolution for instances created with `new`.
+   * Public fields and accessors resolve lazily; standard private fields resolve during construction.
+   * Legacy native class fields must use `declare` so they do not shadow the prototype getter.
    * This option is ignored for constructor parameter injection.
    */
   resolveNew?: boolean;
@@ -91,25 +94,23 @@ function resolveIdentifierFromStandardDecorator(
 }
 
 function createStandardInjectDecorator(
+  target: unknown,
   typeOrIdentifier: ((type?: never) => Constructable<unknown>) | ServiceIdentifier<unknown> | undefined,
-  context: StandardClassMemberDecoratorContext
+  context: StandardClassMemberDecoratorContext,
+  options: InjectOptions
 ) {
-  const resolveInjectedValue = function (this: unknown): unknown {
-    const identifier = resolveIdentifierFromStandardDecorator(typeOrIdentifier, context, this);
-    return ContainerRegistry.getResolutionContainer().get(identifier);
-  };
-
-  if (context.kind === 'accessor') {
-    return {
-      init(this: unknown): unknown {
-        return resolveInjectedValue.call(this);
-      },
-    };
-  }
-
-  return function (this: unknown, _initialValue: unknown): unknown {
-    return resolveInjectedValue.call(this);
-  };
+  return createStandardPropertyDecorator(
+    target,
+    context,
+    instance => {
+      const container = ContainerRegistry.getResolutionContainer();
+      return () => {
+        const identifier = resolveIdentifierFromStandardDecorator(typeOrIdentifier, context, instance);
+        return container.get(identifier);
+      };
+    },
+    options.resolveNew
+  );
 }
 
 function defineResolveNewPropertyHandler(target: Object, propertyName: string | symbol, resolver: () => unknown): void {
@@ -185,7 +186,7 @@ export function Inject(
 ) {
   return function (target: unknown, propertyNameOrContext: string | symbol | unknown, index?: number): unknown {
     if (isStandardClassMemberDecoratorContext(propertyNameOrContext)) {
-      return createStandardInjectDecorator(typeOrIdentifier, propertyNameOrContext);
+      return createStandardInjectDecorator(target, typeOrIdentifier, propertyNameOrContext, options);
     }
 
     createLegacyInjectDecorator(

@@ -10,7 +10,7 @@ class GreetingService {
 
 class ManualController {
   @Inject('greeting.service', { resolveNew: true })
-  public greetingService!: GreetingService;
+  declare greetingService: GreetingService;
 
   public run(name: string): void {
     console.log(`resolveNew=true -> ${this.greetingService.greet(name)}`);

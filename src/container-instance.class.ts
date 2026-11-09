@@ -10,12 +10,17 @@ import { ContainerIdentifier } from './types/container-identifier.type';
 import { Handler } from './interfaces/handler.interface';
 import { ContainerRegistry } from './container-registry.class';
 import { ContainerScope } from './types/container-scope.type';
+import { constructService, initializeDeferredProperties } from './utils/property-injection.util';
 
 /**
  * TypeDI can have multiple containers.
  * One container is ContainerInstance.
  */
 export class ContainerInstance {
+  /** Cache entries created during the current synchronous resolution tree. */
+  private static resolutionCacheEntries: { metadata: ServiceMetadata<unknown>; value: unknown }[] = [];
+  private static resolutionDepth = 0;
+
   /** Container instance id. */
   public readonly id!: ContainerIdentifier;
 
@@ -76,6 +81,10 @@ export class ContainerInstance {
 
     const global = ContainerRegistry.defaultContainer.metadataMap.get(identifier);
     const local = this.metadataMap.get(identifier);
+    if (global?.scope === 'singleton' && this !== ContainerRegistry.defaultContainer) {
+      return ContainerRegistry.defaultContainer.get<T>(identifier);
+    }
+
     /** If the service is registered as global we load it from there, otherwise we use the local one. */
     const metadata = global?.scope === 'singleton' ? global : local;
 
@@ -94,21 +103,18 @@ export class ContainerInstance {
      * TODO: This will be removed with the container inheritance rework.
      */
     if (global && this !== ContainerRegistry.defaultContainer) {
-      const clonedService = { ...global };
-      clonedService.value = global.type || global.factory ? EMPTY_VALUE : global.value;
-
-      /**
-       * We need to immediately set the empty value from the root container
-       * to prevent infinite lookup in cyclic dependencies.
-       */
-      this.set(clonedService as unknown as ServiceOptions<unknown>);
-
-      const localMetadata = this.metadataMap.get(identifier);
-      if (!localMetadata) {
-        throw new ServiceNotFoundError(identifier);
+      /** Supplied values belong to their registering container and cannot be recreated. */
+      if (!global.type && !global.factory) {
+        return ContainerRegistry.defaultContainer.get<T>(identifier);
       }
 
-      return this.getServiceValue(localMetadata) as T;
+      /**
+       * Register before resolving so circular dependencies use the same metadata.
+       * The normal resolution path controls whether the instance is cached.
+       */
+      const clonedService = { ...global, value: EMPTY_VALUE };
+      this.set(clonedService as unknown as ServiceOptions<unknown>);
+      return this.get<T>(identifier);
     }
 
     throw new ServiceNotFoundError(identifier);
@@ -122,7 +128,12 @@ export class ContainerInstance {
     this.throwIfDisposed();
 
     const globalIdMap = ContainerRegistry.defaultContainer.multiServiceIds.get(identifier);
-    const idMap = this.multiServiceIds.get(identifier) || globalIdMap;
+    let idMap = this.multiServiceIds.get(identifier);
+
+    if (!idMap && globalIdMap) {
+      idMap = { tokens: [...globalIdMap.tokens] };
+      this.multiServiceIds.set(identifier, idMap);
+    }
 
     if (idMap) {
       /** Each masked service keeps its own scope, so resolution must happen through the requesting container. */
@@ -223,23 +234,16 @@ export class ContainerInstance {
     if (Array.isArray(identifierOrIdentifierArray)) {
       identifierOrIdentifierArray.forEach(id => this.remove(id));
     } else {
-      const serviceMetadata = this.metadataMap.get(identifierOrIdentifierArray);
-      const multiServiceGroup = this.multiServiceIds.get(identifierOrIdentifierArray);
-
-      if (serviceMetadata) {
-        this.disposeServiceInstance(serviceMetadata);
-        this.metadataMap.delete(identifierOrIdentifierArray);
+      const multipleServices = this.multiServiceIds.get(identifierOrIdentifierArray);
+      if (multipleServices) {
+        this.remove(multipleServices.tokens);
+        this.multiServiceIds.delete(identifierOrIdentifierArray);
       }
 
-      if (multiServiceGroup) {
-        multiServiceGroup.tokens.forEach(token => {
-          const maskedMetadata = this.metadataMap.get(token);
-          if (maskedMetadata) {
-            this.disposeServiceInstance(maskedMetadata);
-            this.metadataMap.delete(token);
-          }
-        });
-        this.multiServiceIds.delete(identifierOrIdentifierArray);
+      const serviceMetadata = this.metadataMap.get(identifierOrIdentifierArray);
+      if (serviceMetadata) {
+        this.disposeServiceInstance(serviceMetadata, true);
+        this.metadataMap.delete(identifierOrIdentifierArray);
       }
     }
 
@@ -315,7 +319,7 @@ export class ContainerInstance {
         this.metadataMap.forEach(service => this.disposeServiceInstance(service));
         break;
       case 'resetServices':
-        this.metadataMap.forEach(service => this.disposeServiceInstance(service));
+        this.metadataMap.forEach(service => this.disposeServiceInstance(service, true));
         this.metadataMap.clear();
         this.multiServiceIds.clear();
         break;
@@ -367,6 +371,8 @@ export class ContainerInstance {
       throw new CannotInstantiateValueError(serviceMetadata.id);
     }
 
+    const cacheCheckpoint = ContainerInstance.resolutionCacheEntries.length;
+    ContainerInstance.resolutionDepth += 1;
     ContainerRegistry.pushResolutionContainer(this);
     try {
       /**
@@ -379,18 +385,12 @@ export class ContainerInstance {
          * factory first and then call the specified function on it.
          */
         if (serviceMetadata.factory instanceof Array) {
-          let factoryInstance;
-
-          try {
-            /** Try to get the factory from TypeDI first, if failed, fall back to simply initiating the class. */
-            factoryInstance = this.get<any>(serviceMetadata.factory[0]);
-          } catch (error) {
-            if (error instanceof ServiceNotFoundError) {
-              factoryInstance = new serviceMetadata.factory[0]();
-            } else {
-              throw error;
-            }
-          }
+          const factoryType = serviceMetadata.factory[0];
+          /** Only unregistered factories bypass injection; dependency errors must propagate. */
+          const factoryInstance =
+            this.has(factoryType) || ContainerRegistry.defaultContainer.has(factoryType)
+              ? this.get<any>(factoryType)
+              : new factoryType();
 
           value = factoryInstance[serviceMetadata.factory[1]](this, serviceMetadata.id);
         } else {
@@ -414,41 +414,42 @@ export class ContainerInstance {
         // need to be injected, and user can use provided container to get instances he needs
         params.push(this);
 
-        value = new constructableTargetType(...params);
-
-        // TODO: Calling this here, leads to infinite loop, because @Inject decorator registerds a handler
-        // TODO: which calls Container.get, which will check if the requested type has a value set and if not
-        // TODO: it will start the instantiation process over. So this is currently called outside of the if branch
-        // TODO: after the current value has been assigned to the serviceMetadata.
-        // this.applyPropertyHandlers(constructableTargetType, value as Constructable<unknown>);
+        value = constructService(constructableTargetType, params);
       }
-    } finally {
-      ContainerRegistry.popResolutionContainer();
-    }
 
-    /** If this is not a transient service, and we resolved something, then we set it as the value. */
-    if (serviceMetadata.scope !== 'transient' && value !== EMPTY_VALUE) {
-      serviceMetadata.value = value;
-    }
+      /** Cache before property injection so circular dependencies reuse this instance. */
+      if (serviceMetadata.scope !== 'transient' && value !== EMPTY_VALUE) {
+        serviceMetadata.value = value;
+        ContainerInstance.resolutionCacheEntries.push({ metadata: serviceMetadata, value });
+      }
 
-    if (value === EMPTY_VALUE) {
-      /** This branch should never execute, but better to be safe than sorry. */
-      throw new CannotInstantiateValueError(serviceMetadata.id);
-    }
+      if (value === EMPTY_VALUE) {
+        /** This branch should never execute, but better to be safe than sorry. */
+        throw new CannotInstantiateValueError(serviceMetadata.id);
+      }
 
-    try {
+      initializeDeferredProperties(value);
       if (serviceMetadata.type) {
         this.applyPropertyHandlers(serviceMetadata.type, value as Record<string, any>);
       }
+
+      return value;
     } catch (error) {
-      /** A failed injection must not leave a partially initialized singleton/container value cached. */
-      if (serviceMetadata.scope !== 'transient' && serviceMetadata.value === value) {
-        serviceMetadata.value = EMPTY_VALUE;
+      /** Roll back this branch, including dependencies holding a partially injected instance. */
+      const failedEntries = ContainerInstance.resolutionCacheEntries.splice(cacheCheckpoint);
+      for (const entry of failedEntries) {
+        if (entry.metadata.value === entry.value) {
+          entry.metadata.value = EMPTY_VALUE;
+        }
       }
       throw error;
+    } finally {
+      ContainerRegistry.popResolutionContainer();
+      ContainerInstance.resolutionDepth -= 1;
+      if (ContainerInstance.resolutionDepth === 0) {
+        ContainerInstance.resolutionCacheEntries.length = 0;
+      }
     }
-
-    return value;
   }
 
   /**
@@ -456,24 +457,15 @@ export class ContainerInstance {
    */
   private initializeParams(target: Function, paramTypes: any[]): unknown[] {
     return paramTypes.map((paramType, index) => {
-      const paramHandler =
-        this.handlers.find(handler => {
-          /**
-           * @Inject()-ed values are stored as parameter handlers and they reference their target
-           * when created. So when a class is extended the @Inject()-ed values are not inherited
-           * because the handler still points to the old object only.
-           *
-           * As a quick fix a single level parent lookup is added via `Object.getPrototypeOf(target)`,
-           * however this should be updated to a more robust solution.
-           *
-           * TODO: Add proper inheritance handling: either copy the handlers when a class is registered what
-           * TODO: has it's parent already registered as dependency or make the lookup search up to the base Object.
-           */
-          return handler.object === target && handler.index === index;
-        }) ||
-        this.handlers.find(handler => {
-          return handler.object === Object.getPrototypeOf(target) && handler.index === index;
-        });
+      let paramHandler: Handler | undefined;
+      for (
+        let currentTarget: Function | null = target;
+        currentTarget && currentTarget !== Function.prototype;
+        currentTarget = Object.getPrototypeOf(currentTarget) as Function | null
+      ) {
+        paramHandler = this.handlers.find(handler => handler.object === currentTarget && handler.index === index);
+        if (paramHandler) break;
+      }
 
       if (paramHandler) return paramHandler.value(this);
 
@@ -524,7 +516,7 @@ export class ContainerInstance {
 
     if (shouldResetValue) {
       /** If we wound a function named destroy we call it without any params. */
-      if (typeof (serviceMetadata?.value as Record<string, unknown>)['dispose'] === 'function') {
+      if (typeof (serviceMetadata.value as Record<string, unknown> | null | undefined)?.dispose === 'function') {
         try {
           (serviceMetadata.value as { dispose: CallableFunction }).dispose();
         } catch (error) {

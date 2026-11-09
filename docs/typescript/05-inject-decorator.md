@@ -11,6 +11,10 @@ This decorator is **mandatory** on properties where a class instance is desired.
 will stay undefined.) The type of the property is automatically inferred when it is a class, in all other cases the
 requested type must be provided.
 
+When an instance is resolved through `Container.get`, property injection finishes after its
+constructor returns. This allows circular property dependencies. Use constructor injection
+or a factory for dependencies that the constructor itself needs.
+
 ```ts
 import 'reflect-metadata';
 import { Container, Inject, Service } from 'typedi';
@@ -46,6 +50,10 @@ console.log(instance.withoutDecorator);
 ```
 
 ## Constructor Injection
+
+Constructor type inference uses `reflect-metadata` and the legacy TypeScript options
+`experimentalDecorators` and `emitDecoratorMetadata`. Standard TC39 decorators do not support
+constructor parameter decorators; use explicit property identifiers or a service factory instead.
 
 The `@Inject` decorator is not required in constructor injection when a class is marked with the `@Service` decorator.
 TypeDI will automatically infer and inject the correct class instances for every constructor argument. However, it can
@@ -156,3 +164,35 @@ instance.inferredArgumentInjection.print();
 instance.explicitArgumentInjection.print();
 // prints "I am a different class!" (BetterInjectedClass.print function)
 ```
+
+## Instances created with `new`
+
+Enable `resolveNew` to resolve a property lazily when an instance is created outside the container:
+
+```ts
+class ManualController {
+  @Inject(() => UserService, { resolveNew: true })
+  declare userService: UserService;
+}
+
+const controller = new ManualController();
+// The first read resolves and caches the dependency for this instance.
+controller.userService;
+```
+
+This example uses legacy decorators. Without `resolveNew`, manually constructed instances do
+not receive injected properties. For standard TC39 decorators, use `userService!: UserService`
+instead of `declare`; explicit identifiers do not require `reflect-metadata`.
+
+Public fields and auto-accessors resolve lazily. A private TC39 field (`#field`) cannot expose
+a getter, so `resolveNew` resolves it during manual construction. Use a private auto-accessor
+(`accessor #field`) if lazy resolution is required.
+
+When legacy decorators are used with `useDefineForClassFields: true`, use `declare` on the
+injected property, as above. It emits no own field, so the decorator's lazy getter remains
+accessible. This works with or without `@Service()` and preserves the original constructor.
+
+An ordinary `userService!: UserService` declaration emits an own field that shadows the getter.
+A legacy property decorator cannot intercept this definition; `@Service()` does not change that.
+If changing the property declaration is not possible, use `useDefineForClassFields: false`.
+Explicit field initializers and assignments take precedence over lazy resolution.
