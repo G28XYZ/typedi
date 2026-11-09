@@ -7,14 +7,14 @@ const config = {
   context: 'globalThis',
   output: [
     {
-      name: 'ClassTransformer',
+      name: 'TypeDI',
       format: 'umd',
       exports: 'named',
       file: 'build/bundles/typedi.umd.js',
       sourcemap: true,
     },
     {
-      name: 'ClassTransformer',
+      name: 'TypeDI',
       format: 'umd',
       exports: 'named',
       file: 'build/bundles/typedi.umd.min.js',

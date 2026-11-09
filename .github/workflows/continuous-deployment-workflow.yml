@@ -23,6 +23,7 @@ jobs:
       - run: npm run build:cjs
       - run: npm run build:umd
       - run: npm run build:types
+      - run: npm run test:build
       - run: cp LICENSE build/LICENSE
       - run: cp README.md build/README.md
       - run: jq 'del(.devDependencies) | del(.scripts)' package.json > build/package.json
